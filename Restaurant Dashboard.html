@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restaurant Dashboard</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --bg:#0b0c10;
+    --card:#1f2833;
+    --accent:#66fcf1;
+    --text:#c5c6c7;
+    --green:#2ecc71;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
+body{background:var(--bg);color:var(--text);display:flex;}
+
+aside{
+    width:250px;background:var(--card);
+    padding:20px;position:fixed;height:100%;
+}
+
+.logo{
+    color:var(--accent);
+    font-size:1.5em;
+    text-align:center;
+    margin-bottom:30px;
+}
+
+.nav-item{
+    padding:12px;
+    margin-bottom:10px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.nav-item:hover{
+    background:rgba(102,252,241,0.1);
+    color:var(--accent);
+}
+
+main{
+    margin-left:250px;
+    padding:30px;
+    width:100%;
+}
+
+h1{color:#fff;margin-bottom:20px;}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.stat{
+    background:var(--card);
+    padding:15px;
+    border-radius:10px;
+}
+
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th,td{padding:10px;border-bottom:1px solid #333;}
+th{color:var(--accent);}
+
+.menu-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    gap:20px;
+}
+
+.menu-card{
+    background:var(--card);
+    padding:15px;
+    border-radius:10px;
+}
+
+.menu-card img{
+    width:100%;
+    height:120px;
+    object-fit:cover;
+    border-radius:8px;
+}
+
+button{
+    margin-top:10px;
+    padding:6px 10px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+.accept{background:var(--green);color:#fff;}
+.ready{background:#3498db;color:#fff;}
+.delete{background:red;color:#fff;}
+
+input, select{padding:8px;margin:5px;}
+</style>
+</head>
+
+<body>
+
+<aside>
+    <div class="logo">RESTAURANT PRO</div>
+    <div class="nav-item" onclick="showOrders()">Orders</div>
+    <div class="nav-item" onclick="showMenu()">Menu</div>
+</aside>
+
+<main>
+
+<h1 id="title">Dashboard</h1>
+
+<!-- ORDERS -->
+<div id="orders-page">
+
+<button onclick="downloadReport()" style="margin-bottom:15px;">
+    Download Sales Report
+</button>
+
+<div class="stats">
+    <div class="stat">Active: <span id="active">0</span></div>
+    <div class="stat">Total: <span id="total">0</span></div>
+    <div class="stat">Revenue: ₹<span id="rev">0</span></div>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Items</th>
+<th>Amount</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="orders-body"></tbody>
+</table>
+
+</div>
+
+<!-- MENU -->
+<div id="menu-page" style="display:none;">
+
+<h2>Menu Management</h2>
+
+<input type="text" id="name" placeholder="Dish Name">
+<input type="number" id="price" placeholder="Price">
+<input type="file" id="image">
+
+<select id="category">
+    <option>Biryani</option>
+    <option>Burger</option>
+    <option>Pizza</option>
+    <option>Dosa</option>
+    <option>Parotta</option>
+    <option>Ice Cream</option>
+    <option>Cakes</option>
+    <option>Juice</option>
+    <option>Noodles</option>
+    <option>Salad</option>
+</select>
+
+<button onclick="addItem()">Add</button>
+
+<div class="menu-grid" id="menu-list"></div>
+
+</div>
+
+</main>
+
+<script>
+// ===== PAGE SWITCH =====
+function showOrders(){
+    document.getElementById("orders-page").style.display="block";
+    document.getElementById("menu-page").style.display="none";
+    document.getElementById("title").innerText="Dashboard";
+}
+
+function showMenu(){
+    document.getElementById("orders-page").style.display="none";
+    document.getElementById("menu-page").style.display="block";
+    document.getElementById("title").innerText="Menu";
+    loadMenu();
+}
+
+// ===== ORDER STORAGE =====
+function getOrders(){
+    return JSON.parse(localStorage.getItem("orders")) || [];
+}
+
+function updateOrderStatus(id,status){
+    let orders=getOrders();
+    orders=orders.map(o=>{
+        if(o.id===id) o.status=status;
+        return o;
+    });
+    localStorage.setItem("orders",JSON.stringify(orders));
+}
+
+// ===== LOAD ORDERS =====
+function loadOrders(){
+    const orders=getOrders();
+    const tbody=document.getElementById("orders-body");
+
+    tbody.innerHTML="";
+    let active=0,revenue=0;
+
+    orders.forEach(o=>{
+        if(o.status!=="READY") active++;
+        if(o.status==="READY") revenue+=o.items.length*150;
+
+        const tr=document.createElement("tr");
+
+        tr.innerHTML=`
+        <td>#${o.id}</td>
+        <td>${o.items.map(i=>i.name).join(", ")}</td>
+        <td>₹${o.items.length*150}</td>
+        <td>${o.status}</td>
+        <td>
+        ${
+            o.status==="NEW"
+            ? `<button class="accept" onclick="accept('${o.id}')">Accept</button>`
+            : o.status==="PREPARING"
+            ? `<button class="ready" onclick="ready('${o.id}')">Ready</button>`
+            : "Done"
+        }
+        </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById("active").innerText=active;
+    document.getElementById("total").innerText=orders.length;
+    document.getElementById("rev").innerText=revenue;
+}
+
+function accept(id){
+    updateOrderStatus(id,"PREPARING");
+    loadOrders();
+}
+
+function ready(id){
+    updateOrderStatus(id,"READY");
+    loadOrders();
+}
+
+// ===== MENU =====
+function getMenu(){
+    return JSON.parse(localStorage.getItem("menu"))||[];
+}
+
+function saveMenu(menu){
+    localStorage.setItem("menu",JSON.stringify(menu));
+}
+
+function loadMenu(){
+    const menu=getMenu();
+    const container=document.getElementById("menu-list");
+
+    container.innerHTML="";
+
+    menu.forEach(item=>{
+        const div=document.createElement("div");
+        div.className="menu-card";
+
+        div.innerHTML=`
+        <img src="${item.image}">
+        <h3>${item.name}</h3>
+        <p>${item.category}</p>
+        <p>₹${item.price}</p>
+        <button class="delete" onclick="deleteItem(${item.id})">Delete</button>
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+function addItem(){
+    const name=document.getElementById("name").value;
+    const price=document.getElementById("price").value;
+    const category=document.getElementById("category").value;
+    const file=document.getElementById("image").files[0];
+
+    if(!name||!price||!file){
+        alert("Fill all fields");
+        return;
+    }
+
+    const reader=new FileReader();
+
+    reader.onload=function(e){
+        const menu=getMenu();
+
+        menu.push({
+            id:Date.now(),
+            name,
+            price,
+            category,
+            image:e.target.result
+        });
+
+        saveMenu(menu);
+
+        document.getElementById("name").value="";
+        document.getElementById("price").value="";
+        document.getElementById("image").value="";
+
+        loadMenu();
+    };
+
+    reader.readAsDataURL(file);
+}
+
+function deleteItem(id){
+    let menu=getMenu();
+    menu=menu.filter(i=>i.id!==id);
+    saveMenu(menu);
+    loadMenu();
+}
+
+// ===== SALES REPORT =====
+function downloadReport(){
+
+    const orders=getOrders();
+
+    if(orders.length===0){
+        alert("No Orders");
+        return;
+    }
+
+    let csv="Order ID,Items,Amount,Status\n";
+
+    orders.forEach(order=>{
+        const items=order.items.map(i=>i.name).join(" | ");
+        const amount=order.items.length*150;
+
+        csv+=`${order.id},"${items}",${amount},${order.status}\n`;
+    });
+
+    const blob=new Blob([csv],{type:"text/csv"});
+    const url=window.URL.createObjectURL(blob);
+
+    const a=document.createElement("a");
+    a.href=url;
+    a.download="sales_report.csv";
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+}
+
+// AUTO REFRESH
+setInterval(loadOrders,2000);
+loadOrders();
+
+</script>
+
+</body>
+</html>
